@@ -6,6 +6,9 @@
      
         var options = $.extend({
                 eventNamespace : "masonery_builder",
+                debug: false,
+                marginTop: 20,
+                marginRight: 20,
                 dragenter: function () {},
                 dragleave: function () {},
                 dragstop: function () {},
@@ -81,7 +84,7 @@
                 reInitList(datas.pos, datas.id);
             })
             .on(options.eventNamespace+".masonery_ends", function (sender, datas) {
-                var updatedMatrice = ctxt.createMatrice($('.item')).list,
+                var updatedMatrice = ctxt.createMatrice($('.item'), options.marginTop, options.marginRight).list,
                     maxH = 0, h;
                 for(var i = 0, l = updatedMatrice.length; i < l; i++) {
                     h = updatedMatrice[i].getHeight();
@@ -92,19 +95,45 @@
             .find('[draggable="true"]')
                 .masoneryBuilderDraggable();
 
+        function logWarning(msg) {
+            if (options.debug) {
+                console.warn("masonery-builder: "+msg);
+            }
+        }
+
+        function log(msg) {
+            if (options.debug) {
+                console.log("masonery-builder: "+msg);
+            }
+        }
+        function logError(msg) {
+            if (options.debug) {
+                console.error("masonery-builder: "+msg);
+            }
+        }
+
 
         function reInitList(coords, id) {
             if (isBuilding) {
+                logWarning("currently building");
                 return;
             }
             isBuilding = true;
+            log("begin rebuild for elt["+id+"]");
 
-            var matrice = ctxt.createMatrice(self.find('.item')),
-                $elt = $('#'+id),
+            var matrice = ctxt.createMatrice(self.find('.item'), options.marginTop, options.marginRight),
                 col = matrice.getColumnAt(coords.x),
-                marginTop = 20,
-                oldCoords = {x : $elt.position().left, y: $elt.position().top},
-                oldCol = matrice.getColumnAt(oldCoords.x);
+                $elt = matrice.findElementById(id),
+                marginTop = options.marginTop,
+                oldCoords, oldCol;
+
+            if (!$elt) {
+                logError("unable to find id ["+id+"]");
+                isBuilding = false;
+                return;
+            }
+            oldCoords = {x : $elt.position().left, y: $elt.position().top};
+            oldCol = matrice.getColumnAt(oldCoords.x);
 
             triggerEvent("masonery_begin", {target : $elt, from: oldCoords, to: coords});
 
@@ -255,14 +284,13 @@ setTimeout(function(){
         ***      MatriceElement      ***
         *******************************/
 
-        function MatriceElement(x, y, $elt, staticBlock) {
+        function MatriceElement(x, y, $elt, defaultSize) {
             this.x = x;
             this.y = y;
             this.maxY = y + $elt.height();
             this.maxX = x + $elt.width();
             this.$elt = $elt;
-            this.staticBlock = staticBlock;
-            this.size = 1;
+            this.size = Math.ceil(this.$elt.width()/defaultSize);
         }
 
         MatriceElement.prototype = {
@@ -295,7 +323,7 @@ setTimeout(function(){
             },
 
             insertAt: function ($elt, posY) {
-                var elt = new MatriceElement($elt.position().left, posY, $elt, false);
+                var elt = new MatriceElement($elt.position().left, posY, $elt, this.max - this.min);
                 if (0 === this.elements.length) {
                     this.elements.push(elt);
                 } else {
@@ -329,6 +357,11 @@ setTimeout(function(){
                     var v = (1 === i) ? (previous.getHeight() + marginTop) : previous;
                     return v + current.getHeight() + marginTop;
                 });
+            },
+
+            findById: function (id) {
+                var el = this.elements.filter(function (e) { return e.$elt.attr("id") == id; });
+                return 1 === el.length ? el[0].$elt : null;
             }
 
         };
@@ -338,8 +371,10 @@ setTimeout(function(){
         ***      Matrice      ***
         ************************/
 
-        function Matrice($list) {
+        function Matrice($list, marginTop, marginRight) {
             this.list = [];
+            this.marginTop = marginTop || this.MARGIN_TOP;
+            this.marginRight = marginRight || this.MARGIN_RIGHT;
             this.createFromList($list);
         }
 
@@ -373,20 +408,31 @@ setTimeout(function(){
             },
 
             createList: function ($elt) {
-                var m = new MatriceItemList($elt.position().left, $elt.position().left + this.COL_WIDTH + this.MARGIN_RIGHT-1, this.MARGIN_TOP);
+                var m = new MatriceItemList($elt.position().left, $elt.position().left + this.COL_WIDTH + this.marginRight-1, this.marginTop);
                 this.list.push(m);
                 return m;
             },
 
             computeX : function (x) {
-                var coeff = Math.floor(x / (this.COL_WIDTH + this.MARGIN_RIGHT));
-                return coeff * (this.COL_WIDTH + this.MARGIN_RIGHT);
+                var coeff = Math.floor(x / (this.COL_WIDTH + this.marginRight));
+                return coeff * (this.COL_WIDTH + this.marginRight);
+            },
+
+            findElementById: function (id) {
+                var el;
+                for (var i = 0, l = this.list.length; i < l; i++) {
+                    el = this.list[i].findById(id);
+                    if (el) {
+                        return el;
+                    }
+                }
+                return null;
             }
 
         };
 
-        ctxt.createMatrice = function ($list) {
-            return new Matrice($list);
+        ctxt.createMatrice = function ($list, marginTop, marginRight) {
+            return new Matrice($list, marginTop, marginRight);
         };
 
     }($, window));
