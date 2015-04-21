@@ -119,19 +119,20 @@
                 return;
             }
             isBuilding = true;
-            log("begin rebuild for elt["+id+"]");
+            log("begin rebuild for elt["+id+"] to {x: " + coords.x + ", y: " + coords.y + "}");
 
             var matrice = ctxt.createMatrice(self.find('.item'), options.marginTop, options.marginRight),
                 col = matrice.getColumnAt(coords.x),
-                $elt = matrice.findElementById(id),
                 marginTop = options.marginTop,
-                oldCoords, oldCol;
+                currentItem = matrice.findElementById(id),
+                $elt, oldCoords, oldCol;
 
-            if (!$elt) {
+            if (!currentItem) {
                 logError("unable to find id ["+id+"]");
                 isBuilding = false;
                 return;
             }
+            $elt = currentItem.$elt;
             oldCoords = {x : $elt.position().left, y: $elt.position().top};
             oldCol = matrice.getColumnAt(oldCoords.x);
 
@@ -145,66 +146,44 @@
                 // on est dans la même colonne que la colonne de départ
                 // 1. l'item est placé avant sa position courante
                 if (coords.y < oldCoords.y) {
-                    updateColumn($elt, col, coords, marginTop);
+                    updateColumn(currentItem, matrice, col, coords, marginTop);
                 } else {
                 // 2. l'item est placé après sa position courante
-
-                    var elts = col.getElementsAfter($elt.position().top),
-                        eltLeft = col.min,
-                        eltTop, nextTop;
-
-                    if(0 < elts.length) {
-                        // on a relaché sur l'élément courant, on ne fait rien
-                        if (elts[0].containsY(coords.y)) {
-                            return;
-                        }
-                        nextTop = elts[0].$elt.position().top;
-                        var inserted = false;
-
-                        for (var i = 1, l = elts.length; i < l; i++) {
-                            // on est sur l'élément sur lequel on insère le nouvel item
-                            if (elts[i].containsY(coords.y)) {
-                                inserted = true;
-                                if (1 === i) {
-                                    $elt.stop().animate({
-                                        "top" : elts[i].$elt.height() + marginTop
-                                    });
-                                    elts[i].$elt.stop().animate({
-                                            "top" : nextTop+"px"
-                                        });
-                                    break;
-                                } else {
-                                    $elt.stop().animate({
-                                        "top" : nextTop
-                                    });
-                                    nextTop += $elt.height() + marginTop;
-                                    elts[i].$elt.stop().animate({
-                                            "top" : nextTop+"px"
-                                        });
-                                    nextTop += elts[i].$elt.height() + marginTop;
-                                }
-                            } else {
-                                elts[i].$elt.stop().animate({
-                                        "top" : nextTop+"px"
-                                    });
-                                nextTop += elts[i].$elt.height() + marginTop;
-                            }
-                        }
-                        if (!inserted) {
-                            
-                            $elt.stop().animate({
-                                "top" : elts[elts.length-1].$elt.height() + marginTop
-                            });
-
-                        }
-                    } else {
-                      return;
+                    if(!updateCurrentColumn(currentItem, col, coords, col.min, marginTop)) {
+                        isBuilding = false;
+                        return;
                     }
                 }
             } else {
                 // on est dans une colonne différente de la colonne de départ
                 // maj des nouveaux
-                updateColumn($elt, col, coords, marginTop);
+                if (currentItem.size !== 1) {
+                    logWarning("item["+id+"] could not leave his column !");
+                    var $og = $('#'+id),
+                        $clo = $og.clone();
+                    $og.css("opacity", "0.7");
+                    $clo.attr("id", $og.attr("id") + "-cp");
+                    self.append($clo);
+                    $clo
+                        .css({
+                            left: coords.x,
+                            top: coords.y
+                        }).
+                        stop()
+                        .animate({
+                            left: $og.position().left,
+                            top: $og.position().top
+                            },{
+                                esasing: "linear",
+                            complete: function() {
+                                $og.css("opacity", "1");
+                                $(this).remove();
+                                isBuilding = false;
+                            }
+                        });
+                    return;
+                }
+                updateColumn(currentItem, matrice, col, coords, marginTop);
             }
 
             // maj de l'ancienne colonne
@@ -213,7 +192,7 @@
             }
 
             // @todo gérer les animates pour ne pas avoir à gérer en settimeout
-setTimeout(function(){
+setTimeout(function () {
     isBuilding = false;
     triggerEvent("masonery_ends", {
         target : $elt, 
@@ -224,13 +203,16 @@ setTimeout(function(){
             return this;
         }
 
-        function updateColumn($elt, col, coords, marginTop) {
-            var elts = col.getElementsAfter(coords.y).filter(function (e) {
+        /**
+         * maj de la colonne accueillant le nouvel élément
+         */
+        function updateColumn(currentItem, matrice, col, coords, marginTop) {
+            var $elt = currentItem.$elt,
+                elts = col.getElementsAfter(coords.y).filter(function (e) {
                     return e.$elt.attr("id") !== $elt.attr("id");
                 }),
                 eltLeft = col.min,
                 eltTop, nextTop;
-
             if(0 < elts.length) {
                 eltTop = elts[0].$elt.position().top;
                 $elt.stop().animate({"top" : eltTop, "left": eltLeft}); 
@@ -257,6 +239,9 @@ setTimeout(function(){
             }
         }
 
+        /**
+         * maj des éléments de la colonne contenant l'élément déplacé
+         */
         function updateTargetPreviousColumn($elt, oldCol, oldCoords, marginTop) {
             var oldElts = oldCol.getElementsAfter(oldCoords.y).filter(function (e) {
                 return e.$elt.attr("id") !== $elt.attr("id");
@@ -274,6 +259,68 @@ setTimeout(function(){
             }
         }
 
+        /**
+         * maj de la colonne si l'élément reste dans sa colonne initiale
+         */
+        function updateCurrentColumn(currentItem, col, coords, eltLeft, marginTop) {
+            var $elt = currentItem.$elt,
+                inserted = false,
+                elts = col.getElementsAfter($elt.position().top),
+                nextTop;
+
+            if(0 === elts.length) {
+                logWarning("empty col set");
+                return null;
+            }
+
+            // on a relaché sur l'élément courant, on ne fait rien
+            if (elts[0].containsY(coords.y)) {
+                logWarning("current element selected : {y: "+coords.y+"}");
+                return null;
+            }
+
+            nextTop = elts[0].$elt.position().top;
+            for (var i = 1, l = elts.length; i < l; i++) {
+                // on est sur l'élément sur lequel on insère le nouvel item
+                if (elts[i].containsY(coords.y)) {
+                    inserted = true;
+                    if (1 === i) {
+                        
+                        $elt.stop().animate({
+                            "top" : nextTop + elts[i].$elt.height() + marginTop
+                        });
+                        elts[i].$elt.stop().animate({
+                                "top" : nextTop+"px"
+                            });
+                        break;
+                    } else {
+                        $elt.stop().animate({
+                            "top" : nextTop
+                        });
+                        nextTop += $elt.height() + marginTop;
+                        elts[i].$elt.stop().animate({
+                                "top" : nextTop+"px"
+                            });
+                        nextTop += elts[i].$elt.height() + marginTop;
+                    }
+                } else {
+                    elts[i].$elt.stop().animate({
+                            "top" : nextTop+"px"
+                        });
+                    nextTop += elts[i].$elt.height();
+                }
+            }
+            if (!inserted) {
+                $elt.stop().animate({
+                    "top" : nextTop + marginTop
+                });
+            }
+            if (2 === currentItem.size) {
+
+            }
+            return true;
+        }
+
         return this;
     };
 
@@ -287,8 +334,10 @@ setTimeout(function(){
         function MatriceElement(x, y, $elt, defaultSize) {
             this.x = x;
             this.y = y;
-            this.maxY = y + $elt.height();
-            this.maxX = x + $elt.width();
+            this.width = $elt.width();
+            this.height = $elt.height();
+            this.maxX = x + this.width;
+            this.maxY = y + this.height;
             this.$elt = $elt;
             this.size = Math.ceil(this.$elt.width()/defaultSize);
         }
@@ -361,7 +410,7 @@ setTimeout(function(){
 
             findById: function (id) {
                 var el = this.elements.filter(function (e) { return e.$elt.attr("id") == id; });
-                return 1 === el.length ? el[0].$elt : null;
+                return 1 === el.length ? el[0] : null;
             }
 
         };
@@ -385,6 +434,8 @@ setTimeout(function(){
             MARGIN_RIGHT: 20,
 
             MARGIN_TOP: 20,
+
+            MAX_COLS: 4,
 
             createFromList: function ($list) {
                 var self = this;
@@ -427,6 +478,10 @@ setTimeout(function(){
                     }
                 }
                 return null;
+            },
+
+            colExistsForX: function (x) {
+                return x < this.MAX_COLS * (this.COL_WIDTH + this.MARGIN_RIGHT);
             }
 
         };
@@ -434,6 +489,10 @@ setTimeout(function(){
         ctxt.createMatrice = function ($list, marginTop, marginRight) {
             return new Matrice($list, marginTop, marginRight);
         };
+
+        ctxt.createMatriceElement = function (x, y, $elt, defaultSize) {
+            return new MatriceElement(x, y, $elt, defaultSize);
+        }
 
     }($, window));
 
