@@ -1,12 +1,12 @@
 {
   "name": "masonery-builder",
-  "version": "0.0.1",
+  "version": "0.2",
   "homepage": "https://github.com/plisken1997/masonery-builder",
   "authors": [
     "rbacconnier <raphael.bacconnier@gmail.com>"
   ],
   "description": "simple masonery building interface",
-  "main": "js/src/masonery-builder.0.1-alpha.js",
+  "main": "js/src/masonery-builder.0.2-alpha.js",
   "moduleType": [
     "globals"
   ],
@@ -14,5 +14,5 @@
     "masonery"
   ],
   "license": "MIT",
-  "private": true
+  "private": false
 }
