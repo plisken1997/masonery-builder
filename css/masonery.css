@@ -1,7 +1,6 @@
 .gallery{
-    margin-top:60px;
-    border: 1px solid #ddd;
-    background-color: #eee; 
+    border: 2px solid #FCF7F7;
+    background-color: #FCF7F7;
     position:relative;
 }
 
@@ -9,12 +8,15 @@
     position:absolute;
     overflow-x:hidden;
 }
-.gallery .item.col4{width:190px;}
-.gallery .item.col8{width:400px;}
-.gallery .item.col12{width:610px;}
-.gallery .item.col16{width:830px;}
 
 .gallery .item:hover{
     cursor:pointer;
 }
 
+.grid{
+  float: left;
+  margin-left: 190px;
+  width: 20px;
+  height: 100%;
+  background-color: #fff;
+}
