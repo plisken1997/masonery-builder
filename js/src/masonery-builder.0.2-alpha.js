@@ -6,21 +6,21 @@
 
     (function ($, DI) {
 
-        function logWarning(msg, options) {
+        function logWarning(msg, options, datas) {
             if (options.debug) {
-                console.warn("masonery-builder: "+msg);
+                console.warn("masonery-builder: " + msg, dats);
             }
         }
 
-        function log(msg, options) {
+        function log(msg, options, datas) {
             if (options.debug) {
-                console.log("masonery-builder: "+msg);
+                console.log("masonery-builder: " + msg, datas);
             }
         }
 
         function logError(msg, options, datas) {
             if (options.debug) {
-                console.error("masonery-builder: "+msg, datas);
+                console.error("masonery-builder: " + msg, datas);
             }
         }
 
@@ -84,9 +84,16 @@
             this.$elt = $elt;
             this.options = options;
             this.isBuilding = false;
+            this.version = [];
+            this.saveCurrentBuild();
         }
 
         MasoneryBuilder.prototype = {
+
+            saveCurrentBuild: function () {
+                this.version.push(this.getMasoneryDatas());
+                log("saved version " + this.version.length, this.options, this.version);
+            },
 
             placeItem: function (pos, id) {
                 var $elt = this.$elt,
@@ -145,6 +152,7 @@
                         maxH = nextH;
                     }
                 }
+                this.saveCurrentBuild();
                 this.$elt.stop().animate({height: maxH});
                 cols.forEach(function(e,i){
                     e.forEach(function(item, j){
@@ -171,7 +179,37 @@
                     target: self,
                     datas: d
                 });
+            },
+
+            getMasoneryDatas: function () {
+                var datas = [];
+                this.$elt.find(this.options.itemSelector).each(function (e) {
+                    datas.push({
+                        $e: $(this),
+                        x: $(this).position().left,
+                        y: $(this).position().top
+                    });
+                });
+                return datas;
+            },
+
+            reinit: function () {
+                var cpt = [];
+                this.version[0].forEach(function (e) {
+                    cpt.push(1);
+                    e.$e.stop().animate({
+                        left: e.x,
+                        top: e.y
+                    },{
+                        complete: function () {
+                            cpt.pop();
+                        }
+                    });
+                });
+                this.version.length = 0;
+                this.saveCurrentBuild();
             }
+
         };// end prototype
 
         DI.createMasoneryBuilder = function ($elt, opts) {
@@ -269,6 +307,7 @@
                         logError("could not compute layer position", opts);
                         return;
                     }
+
                     coords.x = coords.x - dataTransfer.layer.x;
                     coords.y = coords.y - dataTransfer.layer.y;
                     if(0 > coords.x) {
@@ -295,10 +334,22 @@
 
             $(this).addClass("masonery-builder");
             this.doBuild = builder.build.bind(builder);
+            this.getMasoneryDatas = builder.getMasoneryDatas.bind(builder);
+            this.reinit = builder.reinit.bind(builder);
         });
 
         this.build = function () {
             this[0].doBuild();
+            return this;
+        };
+
+        this.getMasoneryDatas = function () {
+            return this[0].getMasoneryDatas();
+        };
+
+        this.reinit = function () {
+            this[0].reinit();
+            return this;
         };
 
         return this;
