@@ -18,9 +18,9 @@
             }
         }
 
-        function logError(msg, options) {
+        function logError(msg, options, datas) {
             if (options.debug) {
-                console.error("masonery-builder: "+msg);
+                console.error("masonery-builder: "+msg, datas);
             }
         }
 
@@ -118,7 +118,7 @@
                     cols.push([]);
                 }
 
-                this.$elt.find(".item").each(function (elt, pos) {
+                this.$elt.find(this.options.itemSelector).each(function (elt, pos) {
                     i = findColumn($(this).position().left, self.options);
                     if (null !== i) {
                         cols[i].push({
@@ -186,12 +186,16 @@
         var nbCols = 4,
             marginTop = 20,
             marginRight = 20,
+            containerClass = "masonery",
+            itemClass = "item",
             options = $.extend({
                 eventNamespace : "masonery_builder",
                 debug: false,
                 marginTop: marginTop,
                 marginRight: marginRight,
                 nbCols: nbCols,
+                containerSelector: "." + containerClass,
+                itemSelector: "." + itemClass,
                 dragenter: function () {},
                 dragleave: function () {},
                 dragstop: function () {},
@@ -230,13 +234,16 @@
                     var util = {
                         computeLayerPosition: function(event, container) {
                             var $elt = $(event.target);
-                            if ($elt.hasClass("gallery")) {
+                            if ($elt.hasClass(containerClass)) {
                                 return {
                                     x: event.layerX,
                                     y: event.layerY
                                 }
-                            } else if (!$elt.hasClass("item")) {
-                                $elt = $elt.parent(".item");
+                            } else if (!$elt.hasClass(itemClass)) {
+                                $elt = $elt.parent(opts.itemSelector);
+                            } else {
+                                logError("unable to find element from ", opts, $elt);
+                                return {};
                             }
 
                             return {
@@ -246,10 +253,10 @@
                         },
 
                         findContainer: function(container) {
-                            if($(container).hasClass("gallery")) {
+                            if($(container).hasClass(containerClass)) {
                                 return $(container);
                             }
-                            return $(container).parent(".gallery");
+                            return $(container).parent(options.containerSelector);
                         }
                     };
 
@@ -258,6 +265,10 @@
                         ogEvent = event.originalEvent,
                         dataTransfer = JSON.parse(ogEvent.dataTransfer.getData('text/json')),
                         coords = util.computeLayerPosition(ogEvent, $container);
+                    if (!coords) {
+                        logError("could not compute layer position", opts);
+                        return;
+                    }
                     coords.x = coords.x - dataTransfer.layer.x;
                     coords.y = coords.y - dataTransfer.layer.y;
                     if(0 > coords.x) {

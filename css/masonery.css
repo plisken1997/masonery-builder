@@ -1,19 +1,19 @@
-.gallery{
+.masonery{
     border: 2px solid #FCF7F7;
     background-color: #FCF7F7;
     position:relative;
 }
 
-.gallery .item{
+.masonery .item{
     position:absolute;
     overflow-x:hidden;
 }
 
-.gallery .item:hover{
+.masonery .item:hover{
     cursor:pointer;
 }
 
-.grid{
+.masonery .grid{
   float: left;
   margin-left: 190px;
   width: 20px;
