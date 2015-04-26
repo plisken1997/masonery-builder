@@ -95,10 +95,15 @@
                 log("saved version " + this.version.length, this.options, this.version);
             },
 
-            placeItem: function (pos, id) {
+            placeItem: function (pos, id, insert) {
                 var $elt = this.$elt,
-                    options = this.options;
-                $('#'+id)
+                    options = this.options,
+                    $target = $('#'+id);
+                if (insert) {
+                    log("placeItem : insert new element", this.options, $target);
+                    this.$elt.append($target.css({left:0, top: 0}).detach());
+                }
+                $target
                     .stop()
                     .animate({
                         left: pos.x,
@@ -303,6 +308,7 @@
                         ogEvent = event.originalEvent,
                         dataTransfer = JSON.parse(ogEvent.dataTransfer.getData('text/json')),
                         coords = util.computeLayerPosition(ogEvent, $container);
+
                     if (!coords) {
                         logError("could not compute layer position", opts);
                         return;
@@ -316,13 +322,15 @@
                     if(0 > coords.y) {
                         coords.y = 0;
                     }
+
                     self.trigger(opts.eventNamespace+'.dropTarget:process_drop', {
                         pos: coords,
-                        id: dataTransfer.id
+                        id: dataTransfer.id,
+                        insert: self.find("#"+dataTransfer.id).size() === 0
                     });
                 })
                 .on(opts.eventNamespace+'.dropTarget:process_drop', function (event, datas) {
-                    builder.placeItem(datas.pos, datas.id);
+                    builder.placeItem(datas.pos, datas.id, datas.insert);
                 })
                 .on(opts.eventNamespace+".masonery_ends", function (sender, datas) {
                     builder.isBuilding = false;
